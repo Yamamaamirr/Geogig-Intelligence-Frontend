@@ -209,7 +209,7 @@ const handleFileChange = async (event) => {
                 const mapboxUrl = result.mapboxUrl;
                 const boundingBox = result.boundingBox;
                 const outputFile = result.outputFile;
-                const workspace = "yamama";
+                const workspace = "hagan_new";
                 const newId = Date.now();
                 const tiffLayer = {
                   id: newId,
@@ -238,36 +238,41 @@ const handleFileChange = async (event) => {
       }
     }
   };
-  
 
-  const handleDeleteTiffLayer = async (tiffLayerId, workspace, layerName) => {
+  const handleDeleteTiffLayer = async (id, workspace, layerName) => {
+    console.log(`${workspace} and ${layerName}`);
+
+    workspace="hagan_new";
+
     try {
-        // Send the delete request to the Node.js backend
-        const layerResponse = await fetch(`https://nodeback.duckdns.org:3009/delete-layer`, {  // Adjust the port if needed
+        const response = await fetch('https://nodeback.duckdns.org:3009/delete-layer', {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ tiffLayerId,workspace, layerName })
+            body: JSON.stringify({ workspace, layerName })
         });
 
-        if (!layerResponse.ok) {
-            const errorResponse = await layerResponse.json();
-            throw new Error(`Failed to delete layer: ${errorResponse.message || layerResponse.statusText}`);
+        if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+                console.log('Layer deleted successfully');
+
+                // Update the tiffLayers state to remove the deleted layer
+                setTiffLayers(prevTiffLayers => prevTiffLayers.filter(layer => layer.id !== id));
+                
+                // Additional logic after successful deletion, if needed
+            } else {
+                console.error('Error deleting layer:', result.message);
+            }
+        } else {
+            console.error('Failed to delete layer:', response.statusText);
         }
-
-        // Remove the TIFF layer from the state (UI)
-        setTiffLayers(prevTiffLayers => prevTiffLayers.filter(tiff => tiff.id !== tiffLayerId));
-
-        setStatusMessage(`TIFF layer '${layerName}' and its store deleted successfully.`);
     } catch (error) {
-        console.error("Error deleting TIFF layer:", error);
-        setStatusMessage(`Failed to delete TIFF layer '${layerName}'.`);
+        console.error('Error deleting TIFF layer:', error);
     }
 };
 
-
-  
 console.log(layers)
 
   return (
