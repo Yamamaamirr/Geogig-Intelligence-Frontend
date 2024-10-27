@@ -19,6 +19,42 @@ const MapboxApp = () => {
   const [isUploading, setIsUploading] = useState(false); // New state for upload status
   const [converted, setConverted] = useState(false); // New state to track upload completion
 
+  
+ // Function to fetch layers from the PostGIS database
+ const fetchPostGislayers = async () => {
+  try {
+      const response = await fetch("https://nodeback.duckdns.org:3009/api/layers");
+      if (!response.ok) {
+          throw new Error('Network response was not ok');
+      }
+      const layersData = await response.json();
+      setLayers(layersData); // Set the fetched layers to state
+  } catch (error) {
+      console.error('Error fetching layers:', error);
+  }
+};
+
+const fetchTiffLayers = async () => {
+  try {
+      const response = await fetch("https://nodeback.duckdns.org:3009/api/tiff-layers");
+      if (!response.ok) {
+          throw new Error('Network response was not ok');
+      }
+      const tiffLayersData = await response.json();
+      setTiffLayers(tiffLayersData); // Set the fetched tiff layers to state
+  } catch (error) {
+      console.error('Error fetching TIFF layers:', error);
+  }
+};
+
+useEffect(() => {
+  fetchPostGislayers(); // Fetch GeoJSON layers
+  fetchTiffLayers(); // Fetch TIFF layers
+}, []);
+
+
+console.log(tiffLayers)
+
 
   function handleRasterZoom(id){
 setRasterzoomid(id);
@@ -29,50 +65,51 @@ setRasterzoomid(id);
     ));
   };
 
-  const handleGeoJsonUpload = (geojson, name) => {
+  const handleGeoJsonUpload = async (geojson, name) => {
+    // Check if the layer already exists by name to prevent duplicates
     const existingLayer = layers.find(layer => layer.name === name);
     if (existingLayer) {
-      console.error('Layer with this name already exists');
-      return;
+        console.error('Layer with this name already exists');
+        return;
     }
 
     const layerId = `layer-${Date.now()}`;
     const newLayer = {
-      id: layerId,
-      data: geojson,
-      name: name,
-      visible: true
+        id: layerId,
+        data: geojson,
+        name: name,
+        visible: true
     };
-    
+
+    // Update state to add this layer in the UI
     setLayers(prevLayers => [...prevLayers, newLayer]);
-  };
-
-  const handleSaveLayer = async () => {
-    if (!selectedLayerId) {
-      console.error("Please select a layer to save.");
-      return;
-    }
-
-    const selectedLayer = layers.find(layer => layer.id === selectedLayerId);
-    if (!selectedLayer) {
-      console.error("Selected layer not found.");
-      return;
-    }
 
     try {
-      const userId = "userId1";
-      const userDocRef = doc(db, "users", userId);
-      const layerDocRef = doc(userDocRef, "layers", selectedLayer.name);
+        // Prepare and send the data to the backend
+        const requestData = {
+            name: name,           // This is used as the PostGIS table name
+            geojson: geojson       // The actual GeoJSON data
+        };
 
-      await setDoc(layerDocRef, {
-        geojson: JSON.stringify(selectedLayer.data)
-      });
+        const response = await fetch("https://nodeback.duckdns.org:3009/api/layers", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(requestData),
+        });
 
-      console.log("Layer saved successfully!");
+        if (!response.ok) {
+            const errorMessage = await response.text();
+            throw new Error("Network response was not ok: " + errorMessage);
+        }
+
+        const data = await response.json();
+        console.log("Layer saved successfully!", data);
     } catch (error) {
-      console.error("Error saving layer:", error);
+        console.error("Error saving layer:", error);
     }
-  };
+};
 
   const handleClickZoom = (layerId) => {
     const layer = layers.find(l => l.id === layerId);
@@ -83,64 +120,52 @@ setRasterzoomid(id);
 
   const handleDeleteLayer = async (id) => {
     try {
-      const userId = "userId1";
-      const userDocRef = doc(db, "users", userId);
-      const layer = layers.find(layer => layer.id === id);
-      if (layer) {
-        const layerDocRef = doc(userDocRef, "layers", layer.name);
-        await deleteDoc(layerDocRef);
-        
-        setLayers(layers.filter(layer => layer.id !== id));
-        console.log("Layer deleted successfully!");
-      } else {
-        console.error("Layer not found.");
-      }
+        const layer = layers.find(layer => layer.id === id);
+
+        if (layer) {
+            // Step 2: Delete layer from PostGIS database
+            const response = await fetch(`https://nodeback.duckdns.org:3009/api/layers/${layer.id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (response.ok) {
+                console.log("Layer deleted successfully from PostGIS database!");
+                // Step 3: Update the state to remove the deleted layer
+                setLayers(layers.filter(layer => layer.id !== id));
+            } else {
+                const errorData = await response.json();
+                console.error("Error deleting layer from PostGIS database:", errorData.error);
+            }
+        } else {
+            console.error("Layer not found.");
+        }
     } catch (error) {
-      console.error("Error deleting layer:", error);
+        console.error("Error deleting layer:", error);
     }
-  };
+};
 
-  const fetchSavedLayers = async () => {
-    try {
-      const userId = "userId1";
-      const userDocRef = doc(db, "users", userId);
-      const userLayersRef = collection(userDocRef, "layers");
-
-      const unsubscribe = onSnapshot(userLayersRef, (snapshot) => {
-        const layersData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          data: JSON.parse(doc.data().geojson),
-          name: doc.id,
-          visible: true
-        }));
-
-        setLayers(layersData);
-      });
-
-      return () => unsubscribe();
-    } catch (error) {
-      console.error("Error fetching saved layers:", error);
-    }
-  };
-  
-    const handleFileChange = async (event) => {
-    const file = event.target.files[0];
-    if (file) {
+ 
+const handleFileChange = async (event) => {
+  const file = event.target.files[0];
+  if (file) {
       const reader = new FileReader();
       const fileName = file.name;
       const fileExtension = fileName.split('.').pop().toLowerCase();
-  
+
       if (fileExtension === 'geojson') {
-        reader.onload = () => {
-          try {
-            const geojson = JSON.parse(reader.result);
-            const baseName = fileName.split('.').slice(0, -1).join('.');
-            handleGeoJsonUpload(geojson, baseName);
-          } catch (error) {
-            console.error('Error parsing GeoJSON:', error);
-          }
-        };
-        reader.readAsText(file);
+          reader.onload = () => {
+              try {
+                  const geojson = JSON.parse(reader.result);
+                  const baseName = fileName.split('.').slice(0, -1).join('.');
+                  handleGeoJsonUpload(geojson, baseName); // Directly upload GeoJSON
+              } catch (error) {
+                  console.error('Error parsing GeoJSON:', error);
+              }
+          };
+          reader.readAsText(file);
       } else if (fileExtension === 'tiff' || fileExtension === 'tif') {
       setProgress(0);           // Reset progress to 0
       setConverted(false);       // Reset conversion status
@@ -217,18 +242,18 @@ setRasterzoomid(id);
 
   const handleDeleteTiffLayer = async (tiffLayerId, workspace, layerName) => {
     try {
-        // Send the delete request to the Python backend
-        const layerResponse = await fetch(`http://127.0.0.1:5000/delete-layer`, {
+        // Send the delete request to the Node.js backend
+        const layerResponse = await fetch(`https://nodeback.duckdns.org:3009/delete-layer`, {  // Adjust the port if needed
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ workspace, layerName })
+            body: JSON.stringify({ tiffLayerId,workspace, layerName })
         });
 
         if (!layerResponse.ok) {
             const errorResponse = await layerResponse.json();
-            throw new Error(`Failed to delete layer from GeoServer: ${errorResponse.message || layerResponse.statusText}`);
+            throw new Error(`Failed to delete layer: ${errorResponse.message || layerResponse.statusText}`);
         }
 
         // Remove the TIFF layer from the state (UI)
@@ -240,10 +265,10 @@ setRasterzoomid(id);
         setStatusMessage(`Failed to delete TIFF layer '${layerName}'.`);
     }
 };
+
+
   
-  useEffect(() => {
-    fetchSavedLayers();
-  }, []);
+console.log(layers)
 
   return (
     <>
@@ -259,7 +284,7 @@ setRasterzoomid(id);
           onGeoJsonUpload={handleGeoJsonUpload} 
           layers={layers}
           onToggleLayer={handleToggleLayer}
-          onSaveLayer={handleSaveLayer}
+        
           onDeleteLayer={handleDeleteLayer}
           setSelectedLayerId={setSelectedLayerId}
           handleClickZoom={handleClickZoom}
