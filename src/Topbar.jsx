@@ -9,22 +9,6 @@ const TopBar = ({ isNotificationOpen, progress, converted, setIsNotificationOpen
 
   return (
     <div className="bg-white text-gray-900 py-2 px-4 flex items-center justify-between shadow-md w-full fixed top-0 left-0 z-40 border-b border-gray-200">
-      <div className="flex items-center">
-        <a href="/" className="flex items-center hover:text-gray-600 transition duration-300">
-          <img src={logo} alt="Logo" className="h-10 w-auto" />
-        </a>
-      </div>
-
-      <div className="flex-grow flex justify-center mx-4">
-        <div className="relative flex-grow max-w-md">
-          <input
-            type="text"
-            placeholder="Search..."
-            className="w-full p-2 pl-10 rounded-lg bg-gray-50 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-300"
-          />
-        </div>
-      </div>
-
       <div className="flex items-center space-x-4">
         <button
           className="relative p-2 text-gray-600 hover:text-gray-800 transition duration-300"
@@ -32,7 +16,7 @@ const TopBar = ({ isNotificationOpen, progress, converted, setIsNotificationOpen
         >
           <FontAwesomeIcon icon={faBell} />
           {isNotificationOpen && (
-            <div className="absolute right-0 mt-2 w-72 bg-white border border-gray-300 shadow-lg rounded-lg p-4 z-50">
+            <div className="absolute left-0 mt-2 w-72 bg-white border border-gray-300 shadow-lg rounded-lg p-4 z-50 -ml-2">
               {showLoader ? (
                 <>
                   <div className="flex items-center justify-between mb-3">
@@ -61,7 +45,23 @@ const TopBar = ({ isNotificationOpen, progress, converted, setIsNotificationOpen
             </div>
           )}
         </button>
+        
+        <a href="/" className="flex items-center hover:text-gray-600 transition duration-300">
+          <img src={logo} alt="Logo" className="h-10 w-auto" />
+        </a>
+      </div>
 
+      <div className="flex-grow flex justify-center mx-4">
+        <div className="relative flex-grow max-w-md">
+          <input
+            type="text"
+            placeholder="Search..."
+            className="w-full p-2 pl-10 rounded-lg bg-gray-50 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-300"
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center space-x-4">
         <button className="p-2 text-gray-600 hover:text-gray-800 transition duration-300">
           <FontAwesomeIcon icon={faUser} />
         </button>

@@ -157,7 +157,7 @@ console.log(Rasterzoomid);
     tiffLayers.forEach(tiff => {
       const { id, boundingBox, visible, mapboxUrl } = tiff;
       const sourceId = `raster-layer-${id}`;
-    
+      const circleLayerId = `circle-layer-${id}`;
       // Add or update raster source if necessary
       if (!map.getSource(sourceId)) {
         map.addSource(sourceId, {
@@ -180,7 +180,43 @@ console.log(Rasterzoomid);
         // Set visibility dynamically if the layer already exists
         map.setLayoutProperty(sourceId, 'visibility', visible ? 'visible' : 'none');
       }
+
+
+
+      if (!map.getLayer(circleLayerId)) {
+        map.addLayer({
+          id: circleLayerId,
+          type: 'circle',
+          source: {
+            type: 'geojson',
+            data: {
+              type: 'FeatureCollection',
+              features: [{
+                type: 'Feature',
+                geometry: {
+                  type: 'Point',
+                  coordinates: [
+                    (parseFloat(boundingBox.minx) + parseFloat(boundingBox.maxx)) / 2,
+                    (parseFloat(boundingBox.miny) + parseFloat(boundingBox.maxy)) / 2
+                  ]
+                }
+              }]
+            }
+          },
+          paint: {
+            'circle-radius': 6,
+            'circle-color': '#000000',
+          },
+          layout: { visibility: 'none' }
+        });
+      }
     
+
+      map.on('zoom', () => {
+        const zoom = map.getZoom();
+        map.setLayoutProperty(circleLayerId, 'visibility', zoom < 8 ? 'visible' : 'none'); // Adjust "8" as needed for your zoom threshold
+      });
+
       // Fit the map bounds if visible and the layer is the one clicked for zooming
       if (visible && Rasterzoomid === id && boundingBox) {
         const bounds = [
