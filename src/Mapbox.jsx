@@ -5,7 +5,7 @@ import ThemeSelector from './ThemeSwitcher';
 
 mapboxgl.accessToken = 'pk.eyJ1IjoidGFsaGF3YXFxYXMxNCIsImEiOiJjbHBreHhscWEwMWU4MnFyenU3ODdmeTdsIn0.8IlEgMNGcbx806t363hDJg';
 
-const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid,tiffLayers}) => {
+const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid,tiffLayers,setRasterzoomid}) => {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -218,18 +218,7 @@ console.log(Rasterzoomid);
       });
 
       // Fit the map bounds if visible and the layer is the one clicked for zooming
-      if (visible && Rasterzoomid === id && boundingBox) {
-        const bounds = [
-          [parseFloat(boundingBox.minx), parseFloat(boundingBox.miny)],
-          [parseFloat(boundingBox.maxx), parseFloat(boundingBox.maxy)]
-        ];
-    
-        map.fitBounds(bounds, {
-          padding: { top: 10, bottom: 10, left: 10, right: 10 },
-          maxZoom: 15,
-          duration: 1000, // Animation duration for zooming
-        });
-      }
+     
     });
     
 
@@ -396,6 +385,30 @@ console.log(Rasterzoomid);
     updateMapLayers();
   }, [updateMapLayers]);
    
+
+  useEffect(() => {
+    if (!Rasterzoomid || !mapLoaded) return;
+  
+    const map = mapRef.current;
+    const selectedTiffLayer = tiffLayers.find(tiff => tiff.id === Rasterzoomid);
+    if (selectedTiffLayer && selectedTiffLayer.boundingBox) {
+      const { boundingBox } = selectedTiffLayer;
+      const bounds = [
+        [parseFloat(boundingBox.minx), parseFloat(boundingBox.miny)],
+        [parseFloat(boundingBox.maxx), parseFloat(boundingBox.maxy)],
+      ];
+  
+      // Trigger the map fitBounds with padding and other options
+      map.fitBounds(bounds, {
+        padding: { top: 10, bottom: 10, left: 10, right: 10 },
+        maxZoom: 15,
+        duration: 1000, // Duration for zoom animation
+      });
+  
+      // Reset `Rasterzoomid` to allow re-zooming
+      setRasterzoomid(null);
+    }
+  }, [Rasterzoomid, tiffLayers, mapLoaded]);
 
   const handleThemeChange = (newTheme) => {
     if (!mapRef.current) return;

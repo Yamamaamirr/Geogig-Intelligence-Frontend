@@ -303,7 +303,7 @@ console.log(layers)
           handleDeleteTiffLayer={handleDeleteTiffLayer}  // Pass the handler as a prop
 
         />
-        <MapboxMap layers={layers} zoomid={zoomToLayerId} setZoom={setZoomToLayerId} Rasterzoomid={Rasterzoomid} tiffLayers={tiffLayers} />
+        <MapboxMap layers={layers} zoomid={zoomToLayerId} setZoom={setZoomToLayerId} Rasterzoomid={Rasterzoomid}  setRasterzoomid={setRasterzoomid} tiffLayers={tiffLayers} />
       </div>
     </>
   );
