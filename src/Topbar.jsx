@@ -1,5 +1,5 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBell, faUser, faCheckCircle, faSpinner } from '@fortawesome/free-solid-svg-icons'; // Import spinner icon
+import { faBell, faUser, faCheckCircle, faSyncAlt, faSpinner } from '@fortawesome/free-solid-svg-icons'; // Import spinner icon
 import logo from './logo-1.png'; // Replace with your logo path
 
 const TopBar = ({ isNotificationOpen, progress, converted, setIsNotificationOpen, showLoader }) => {
@@ -14,14 +14,13 @@ const TopBar = ({ isNotificationOpen, progress, converted, setIsNotificationOpen
           <img src={logo} alt="Logo" className="h-10 w-auto" />
         </a>
 
-        {/* Notification Button moved here to be to the right of the logo */}
         <button
           className="relative p-2 text-gray-600 hover:text-gray-800 transition duration-300"
           onClick={handleNotificationClick}
         >
           <FontAwesomeIcon icon={faBell} />
           {isNotificationOpen && (
-            <div className="absolute right-0 mt-2 w-72 bg-white border border-gray-300 shadow-lg rounded-lg p-4 z-50">
+            <div className="absolute left-0 mt-2 w-72 bg-white border border-gray-300 shadow-lg rounded-lg p-4 z-50 -ml-2">
               {showLoader ? (
                 <>
                   <div className="flex items-center justify-between mb-3">
