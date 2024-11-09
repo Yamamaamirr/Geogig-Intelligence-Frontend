@@ -126,39 +126,41 @@ console.log(Rasterzoomid);
 
  
   
-
   const updateMapLayers = useCallback(() => {
     if (!mapLoaded) return;
-
-    console.log(tiffLayers)
-
+  
     const map = mapRef.current;
     if (!map) return;
-
-    // Cache current layer IDs
-    const currentLayerIds = new Set(layers.flatMap(layer => [
-      `geojson-layer-${layer.id}-points`,
-      `geojson-layer-${layer.id}-lines`,
-      `geojson-layer-${layer.id}-polygons`,
-      `geojson-layer-${layer.id}-border`,
-      `raster-layer-${layer.id}`
-    ]));
-
-    // Remove unused layers
-    map.getStyle().layers.forEach(layer => {
-      if ((layer.id.startsWith('geojson-layer-') || layer.id.startsWith('raster-layer-')) && !currentLayerIds.has(layer.id)) {
-        map.removeLayer(layer.id);
-        map.removeSource(layer.id);
-      }
-    });
-
-    // Batch handle raster layers
-    const layersToFit = [];
+  
+    // Get the current map bounds (viewport)
+    const mapBounds = map.getBounds(); // Returns a LngLatBounds object
+  
+    // Iterate through each tiffLayer and check if its bounding box intersects with the map viewport
     tiffLayers.forEach(tiff => {
-      const { id, boundingBox, visible, mapboxUrl } = tiff;
+      const { id, boundingBox, mapboxUrl } = tiff;
       const sourceId = `raster-layer-${id}`;
       const circleLayerId = `circle-layer-${id}`;
-      // Add or update raster source if necessary
+  
+      // Parse the bounding box for the layer
+      const layerBounds = [
+        parseFloat(boundingBox.minx), // minx
+        parseFloat(boundingBox.miny), // miny
+        parseFloat(boundingBox.maxx), // maxx
+        parseFloat(boundingBox.maxy)  // maxy
+      ];
+  
+      // Check if the layer's bounding box intersects with the map's current bounds
+      const isLayerInViewport = (
+        layerBounds[2] > mapBounds.getWest() && // Layer's maxx > map's west
+        layerBounds[0] < mapBounds.getEast() && // Layer's minx < map's east
+        layerBounds[3] > mapBounds.getSouth() && // Layer's maxy > map's south
+        layerBounds[1] < mapBounds.getNorth()    // Layer's miny < map's north
+      );
+  
+      // Update the layer visibility based on whether it's in the viewport
+      const updatedVisibility = isLayerInViewport ? 'visible' : 'none';
+  
+      // Add the raster source if it doesn't exist
       if (!map.getSource(sourceId)) {
         map.addSource(sourceId, {
           type: 'raster',
@@ -166,23 +168,21 @@ console.log(Rasterzoomid);
           tileSize: 512,
         });
       }
-    
-      // Handle visibility
+  
+      // Add or update the raster layer based on visibility
       if (!map.getLayer(sourceId)) {
-        // Add raster layer if it doesn't exist yet, and apply the correct visibility
         map.addLayer({
           id: sourceId,
           type: 'raster',
           source: sourceId,
-          layout: { visibility: visible ? 'visible' : 'none' }, // Set initial visibility
+          layout: { visibility: updatedVisibility },
         });
       } else {
-        // Set visibility dynamically if the layer already exists
-        map.setLayoutProperty(sourceId, 'visibility', visible ? 'visible' : 'none');
+        // Update visibility of the existing layer
+        map.setLayoutProperty(sourceId, 'visibility', updatedVisibility);
       }
-
-
-
+  
+      // Handle the circle layer visibility (for zoom level visibility)
       if (!map.getLayer(circleLayerId)) {
         map.addLayer({
           id: circleLayerId,
@@ -196,8 +196,8 @@ console.log(Rasterzoomid);
                 geometry: {
                   type: 'Point',
                   coordinates: [
-                    (parseFloat(boundingBox.minx) + parseFloat(boundingBox.maxx)) / 2,
-                    (parseFloat(boundingBox.miny) + parseFloat(boundingBox.maxy)) / 2
+                    (layerBounds[0] + layerBounds[2]) / 2, // midX
+                    (layerBounds[1] + layerBounds[3]) / 2  // midY
                   ]
                 }
               }]
@@ -210,50 +210,13 @@ console.log(Rasterzoomid);
           layout: { visibility: 'none' }
         });
       }
-    
-
+  
+      // Adjust circle visibility based on zoom level (show when zoom < 8)
       map.on('zoom', () => {
         const zoom = map.getZoom();
-        map.setLayoutProperty(circleLayerId, 'visibility', zoom < 8 ? 'visible' : 'none'); // Adjust "8" as needed for your zoom threshold
+        map.setLayoutProperty(circleLayerId, 'visibility', zoom < 8 ? 'visible' : 'none');
       });
-
-      // Fit the map bounds if visible and the layer is the one clicked for zooming
-     
     });
-    
-
-    // Batch fit bounds for all visible raster layers if there are bounding boxes
-    if (layersToFit.length > 0) {
-      const allBounds = layersToFit.map(({ minx, miny, maxx, maxy }) => [
-        [parseFloat(minx), parseFloat(miny)],
-        [parseFloat(maxx), parseFloat(maxy)],
-      ]);
-
-      // Find the union of all bounds to fit
-      const unionBounds = allBounds.reduce(
-        (acc, bounds) => [
-          [Math.min(acc[0][0], bounds[0][0]), Math.min(acc[0][1], bounds[0][1])],
-          [Math.max(acc[1][0], bounds[1][0]), Math.max(acc[1][1], bounds[1][1])],
-        ],
-        allBounds[0]
-      );
-
-      // Only fit the map if the union bounds differ significantly from the current view
-      const currentBounds = map.getBounds();
-      if (
-        unionBounds[0][0] < currentBounds.getWest() ||
-        unionBounds[1][0] > currentBounds.getEast() ||
-        unionBounds[0][1] < currentBounds.getSouth() ||
-        unionBounds[1][1] > currentBounds.getNorth()
-      ) {
-        map.fitBounds(unionBounds, {
-          padding: { top: 10, bottom: 10, left: 10, right: 10 },
-          maxZoom: 15,
-          duration: 1000, // Slightly longer duration for smoother animation
-        });
-      }
-    }
-  
 
     
     const layersToUpdate = {
@@ -381,10 +344,21 @@ console.log(Rasterzoomid);
   
   }, [layers, tiffLayers, mapLoaded]);
   
-  useEffect(() => {
-    updateMapLayers();
-  }, [updateMapLayers]);
-   
+// Add the event listeners for pan and zoom
+useEffect(() => {
+  const map = mapRef.current;
+  if (map) {
+    map.on('moveend', updateMapLayers); // Trigger layer visibility update after map move
+    map.on('zoomend', updateMapLayers);  // Trigger layer visibility update after zoom
+  }
+
+  return () => {
+    if (map) {
+      map.off('moveend', updateMapLayers);
+      map.off('zoomend', updateMapLayers);
+    }
+  };
+}, [updateMapLayers]);
 
   useEffect(() => {
     if (!Rasterzoomid || !mapLoaded) return;
