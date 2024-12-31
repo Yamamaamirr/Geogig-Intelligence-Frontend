@@ -11,7 +11,6 @@ const TopBar = ({ isNotificationOpen, progress, converted, setIsNotificationOpen
     <div className="bg-white text-gray-900 py-2 px-4 flex items-center justify-between shadow-md w-full fixed top-0 left-0 z-40 border-b border-gray-200">
       <div className="flex items-center space-x-4">
         <a href="/" className="flex items-center hover:text-gray-600 transition duration-300">
-          <img src={logo} alt="Logo" className="h-10 w-auto" />
         </a>
 
         <button
